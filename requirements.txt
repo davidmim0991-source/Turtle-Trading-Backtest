@@ -1,6 +1,9 @@
-streamlit
+fastapi
+uvicorn[standard]
+jinja2
+python-multipart
 pandas
 numpy
-plotly
 openpyxl
 pytest
+httpx

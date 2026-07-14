@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Turtle Backtester</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@500;600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
+  <script src="/static/js/app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar" aria-label="Strategy settings">
+      <div class="sidebar__brand">
+        <div class="logo-mark" aria-hidden="true"></div>
+        <div>
+          <p class="logo-title">Turtle</p>
+          <p class="logo-sub">Backtester</p>
+        </div>
+      </div>
+
+      <form id="backtest-form" class="sidebar__form">
+        <section class="panel">
+          <h2 class="panel__title">Historical data</h2>
+          <label class="file-drop" id="file-drop" for="csv-file">
+            <input type="file" id="csv-file" name="file" accept=".csv,text/csv" required />
+            <span class="file-drop__icon" aria-hidden="true"></span>
+            <span class="file-drop__label" id="file-label">Drop OHLC CSV or click to browse</span>
+            <span class="file-drop__hint">Date/Time, Open, High, Low, Close</span>
+          </label>
+        </section>
+
+        <section class="panel">
+          <h2 class="panel__title">Strategy parameters</h2>
+          <div class="field-grid">
+            <label class="field">
+              <span>Entry lookback</span>
+              <input type="number" id="entry_lookback" name="entry_lookback" min="1" step="1" value="20" required />
+            </label>
+            <label class="field">
+              <span>Exit lookback</span>
+              <input type="number" id="exit_lookback" name="exit_lookback" min="1" step="1" value="10" required />
+            </label>
+            <label class="field">
+              <span>ATR length</span>
+              <input type="number" id="atr_length" name="atr_length" min="2" step="1" value="14" required />
+            </label>
+          </div>
+
+          <label class="check">
+            <input type="checkbox" id="use_filter" name="use_filter" />
+            <span>Enable original Turtle filter</span>
+          </label>
+
+          <label class="check">
+            <input type="checkbox" id="use_ema_filter" name="use_ema_filter" />
+            <span>Enable EMA trend filter</span>
+          </label>
+
+          <label class="field">
+            <span>EMA length</span>
+            <input type="number" id="ema_length" name="ema_length" min="2" step="1" value="200" disabled />
+          </label>
+
+          <label class="field">
+            <span>Execution buffer (points)</span>
+            <input type="number" id="buffer" name="buffer" min="0" step="0.1" value="0" />
+            <small>Adjusts ATR performance only — never entries, exits, or signals.</small>
+          </label>
+        </section>
+
+        <div class="sidebar__actions">
+          <button type="submit" class="btn btn--primary" id="run-btn">
+            <span class="btn__label">Run backtest</span>
+            <span class="btn__spinner" hidden></span>
+          </button>
+          <button type="button" class="btn btn--ghost" id="export-btn" disabled>
+            Export Excel
+          </button>
+        </div>
+      </form>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <button type="button" class="btn btn--icon" id="sidebar-toggle" aria-label="Toggle settings">
+          ☰
+        </button>
+        <div>
+          <h1>ATR breakout desk</h1>
+          <p>Deterministic Turtle Trading System backtests</p>
+        </div>
+        <span class="chip">ATR · Breakouts · Risk units</span>
+      </header>
+
+      <div id="alert" class="alert" hidden role="alert"></div>
+
+      <section id="empty-state" class="empty-card">
+        <h2>No backtest yet</h2>
+        <p>Upload an OHLC CSV, set parameters in the sidebar, and run the backtest to see equity, stats, and trades.</p>
+      </section>
+
+      <section id="results" class="results" hidden>
+        <div class="results__header">
+          <div>
+            <p class="eyebrow">Results</p>
+            <h2>Performance summary</h2>
+          </div>
+          <span id="status-badge" class="badge" hidden></span>
+        </div>
+
+        <div id="no-trades" class="info-banner" hidden>
+          No trades were generated for these parameters.
+        </div>
+
+        <div id="metrics" class="metrics-grid" hidden></div>
+
+        <article class="card" id="equity-card" hidden>
+          <div class="card__head">
+            <h3>Equity curve</h3>
+          </div>
+          <div id="equity-chart" class="chart"></div>
+        </article>
+
+        <div class="tabs" role="tablist" aria-label="Result tables">
+          <button type="button" class="tab is-active" data-tab="trades" role="tab" aria-selected="true">Trade log</button>
+          <button type="button" class="tab" data-tab="monthly" role="tab" aria-selected="false">Monthly performance</button>
+        </div>
+
+        <article class="card tab-panel is-active" id="panel-trades" role="tabpanel">
+          <div class="table-wrap">
+            <table id="trades-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Direction</th>
+                  <th>Entry</th>
+                  <th>Exit</th>
+                  <th>Entry price</th>
+                  <th>Exit price</th>
+                  <th>Entry ATR</th>
+                  <th>Result (ATR)</th>
+                  <th>Bars</th>
+                  <th>Exit reason</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <p id="trades-empty" class="muted" hidden>No trades were generated for these parameters.</p>
+        </article>
+
+        <article class="card tab-panel" id="panel-monthly" role="tabpanel" hidden>
+          <div class="table-wrap">
+            <table id="monthly-table">
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  <th>Net ATR</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div id="monthly-chart" class="chart chart--short"></div>
+          <p id="monthly-empty" class="muted" hidden>No trades were generated for these parameters.</p>
+        </article>
+      </section>
+    </div>
+  </div>
+</body>
+</html>
